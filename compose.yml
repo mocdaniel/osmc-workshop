@@ -1,0 +1,88 @@
+services:
+  db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: talkdb
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./talk-api/talks.sql:/docker-entrypoint-initdb.d/talks.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  talk-api:
+    image: talk-api:latest
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgres://postgres:postgres@db:5432/talkdb?sslmode=disable
+      PORT: "8080"
+    pid: "host"
+    ports:
+      - "8080:8080"
+    volumes:
+      - /proc:/host/proc
+
+  go-auto:
+    depends_on:
+      - talk-api
+    image: otel/autoinstrumentation-go:latest
+    privileged: true
+    pid: "host"
+    environment:
+      OTEL_SERVICE_NAME: talk-api
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_GO_AUTO_TARGET_EXE: /app/talk-api
+      OTEL_LOG_LEVEL: info
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_GO_AUTO_INCLUDE_DB_STATEMENT: true
+      OTEL_GO_AUTO_PARSE_DB_STATEMENT: true
+    volumes:
+      - /proc:/host/proc
+
+  speaker-api:
+    image: speaker-api:latest
+    environment:
+      OTEL_SERVICE_NAME: speaker-api
+      OTEL_TRACES_EXPORTER: console,otlp
+      OTEL_METRICS_EXPORTER: none
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    ports:
+      - "5001:5000"
+
+  frontend:
+    image: frontend:latest
+    environment:
+      NEXT_TALK_API_HOST: http://talk-api:8080
+      NEXT_SPEAKER_API_HOST: http://speaker-api:5000
+      OTEL_TRACES_EXPORTER: otlp,console
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
+      OTEL_SERVICE_NAME: frontend
+      NODE_OPTIONS: "--require @opentelemetry/auto-instrumentations-node/register"
+    ports:
+      - "3000:3000"
+    
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:latest
+    command: ["--config=/etc/otel-collector-config.yaml"]
+    volumes:
+      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+    ports:
+      - "4317:4317"   # OTLP gRPC receiver
+      - "4318:4318" # OTLP HTTP receiver
+
+  jaeger:
+    image: cr.jaegertracing.io/jaegertracing/jaeger:2.11.0
+    ports:
+      - "16686:16686" # Jaeger UI
+      - "4317"
+      - "4318"
+      - "5778"
+      - "9411"
