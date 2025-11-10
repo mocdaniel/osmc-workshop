@@ -30,6 +30,10 @@ services:
   speaker-api:
     image: speaker-api:latest
     build: ./speaker-api
+    environment:
+      OTEL_SERVICE_NAME: speaker-api
+      OTEL_TRACES_EXPORTER: console
+      OTEL_METRICS_EXPORTER: console
     ports:
       - "5000"
 
