@@ -11,7 +11,7 @@ RUN go mod download
 COPY . .
 
 # Build the binary
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build -o talk-api ./cmd/main.go
+RUN CGO_ENABLED=0 GOOS=linux go build -o talk-api ./cmd/main.go
 
 # ---- Runtime Stage ----
 FROM alpine:3.19

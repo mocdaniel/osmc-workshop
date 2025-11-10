@@ -1,0 +1,36 @@
+stream_over_http_enabled: true
+
+usage_report:
+  reporting_enabled: false
+
+server:
+  http_listen_port: 3200
+  grpc_listen_port: 9097
+
+distributor:
+  receivers:
+    otlp:
+      protocols:
+        grpc:
+          endpoint: "tempo:4317"
+
+storage:
+  trace:
+    backend: local
+    wal:
+      path: /var/lib/tempo/wal
+    local:
+      path: /var/lib/tempo/blocks
+
+memberlist:
+  abort_if_cluster_join_fails: false
+  bind_port: 7948
+
+overrides:
+  metrics_generator_processors: ["local-blocks"]
+
+metrics_generator:
+  processor:
+    local_blocks:
+      filter_server_spans: false
+      flush_to_storage: true
