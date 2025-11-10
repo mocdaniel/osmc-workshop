@@ -27,6 +27,19 @@ services:
     ports:
       - "8080"
 
+  go-auto:
+    image: otel/autoinstrumentation-go:v0.23.0
+    privileged: true
+    pid: "host"
+    environment:
+      OTEL_GO_AUTO_TARGET_EXE: /app/talk-api
+      OTEL_SERVICE_NAME: talk-api
+      OTEL_TRACES_EXPORTER: console
+    depends_on:
+      - talk-api
+    volumes:
+      - /proc:/host/proc
+
   speaker-api:
     image: speaker-api:latest
     build: ./speaker-api
