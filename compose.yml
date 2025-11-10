@@ -34,7 +34,8 @@ services:
     environment:
       OTEL_GO_AUTO_TARGET_EXE: /app/talk-api
       OTEL_SERVICE_NAME: talk-api
-      OTEL_TRACES_EXPORTER: console
+      OTEL_TRACES_EXPORTER: otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
     depends_on:
       - talk-api
     volumes:
@@ -45,8 +46,9 @@ services:
     build: ./speaker-api
     environment:
       OTEL_SERVICE_NAME: speaker-api
-      OTEL_TRACES_EXPORTER: console
-      OTEL_METRICS_EXPORTER: console
+      OTEL_TRACES_EXPORTER: console,otlp
+      OTEL_METRICS_EXPORTER: console,otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
     ports:
       - "5000"
 
@@ -59,8 +61,9 @@ services:
     environment:
       NEXT_TALK_API_HOST: http://talk-api:8080
       NEXT_SPEAKER_API_HOST: http://speaker-api:5000
-      OTEL_TRACES_EXPORTER: console
-      OTEL_METRICS_EXPORTER: console
+      OTEL_TRACES_EXPORTER: console,otlp
+      OTEL_METRICS_EXPORTER: console,otlp
+      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
       OTEL_SERVICE_NAME: frontend
       NODE_OPTIONS: "--require @opentelemetry/auto-instrumentations-node/register"
     ports:
