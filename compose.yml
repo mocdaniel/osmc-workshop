@@ -6,7 +6,7 @@ services:
       POSTGRES_PASSWORD: postgres
       POSTGRES_DB: talkdb
     ports:
-      - "5432:5432"
+      - "5432"
     volumes:
       - ./talk-api/talks.sql:/docker-entrypoint-initdb.d/talks.sql:ro
     healthcheck:
@@ -17,72 +17,93 @@ services:
 
   talk-api:
     image: talk-api:latest
-    build: .
+    build: ./talk-api
     depends_on:
       db:
         condition: service_healthy
     environment:
       DATABASE_URL: postgres://postgres:postgres@db:5432/talkdb?sslmode=disable
       PORT: "8080"
-    pid: "host"
     ports:
-      - "8080:8080"
-    volumes:
-      - /proc:/host/proc
-
-  go-auto:
-    depends_on:
-      - talk-api
-    image: otel/autoinstrumentation-go:latest
-    privileged: true
-    pid: "host"
-    environment:
-      OTEL_SERVICE_NAME: talk-api
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-      OTEL_GO_AUTO_TARGET_EXE: /app/talk-api
-      OTEL_LOG_LEVEL: info
-      OTEL_TRACES_EXPORTER: otlp
-      OTEL_GO_AUTO_INCLUDE_DB_STATEMENT: true
-      OTEL_GO_AUTO_PARSE_DB_STATEMENT: true
-    volumes:
-      - /proc:/host/proc
+      - "8080"
 
   speaker-api:
     image: speaker-api:latest
-    environment:
-      OTEL_SERVICE_NAME: speaker-api
-      OTEL_TRACES_EXPORTER: console,otlp
-      OTEL_METRICS_EXPORTER: none
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4317
+    build: ./speaker-api
     ports:
-      - "5001:5000"
+      - "5000"
 
   frontend:
+    depends_on:
+    - speaker-api
+    - talk-api
     image: frontend:latest
+    build: ./frontend
     environment:
       NEXT_TALK_API_HOST: http://talk-api:8080
       NEXT_SPEAKER_API_HOST: http://speaker-api:5000
-      OTEL_TRACES_EXPORTER: otlp,console
-      OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector:4318
-      OTEL_SERVICE_NAME: frontend
-      NODE_OPTIONS: "--require @opentelemetry/auto-instrumentations-node/register"
     ports:
       - "3000:3000"
-    
+
+########################################################
+# Ignore everything below, you won't have to touch it. #
+########################################################
+
   otel-collector:
-    image: otel/opentelemetry-collector-contrib:latest
+    depends_on:
+      - prometheus
+      - tempo
+    image: otel/opentelemetry-collector-contrib:0.139.0
     command: ["--config=/etc/otel-collector-config.yaml"]
     volumes:
-      - ./otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
+      - ./configs/otel-collector-config.yaml:/etc/otel-collector-config.yaml:ro
     ports:
-      - "4317:4317"   # OTLP gRPC receiver
-      - "4318:4318" # OTLP HTTP receiver
+      - "4317"   # OTLP gRPC receiver
+      - "4318"   # OTLP protobuf receiver
 
-  jaeger:
-    image: cr.jaegertracing.io/jaegertracing/jaeger:2.11.0
+  prometheus:
+    image: quay.io/prometheus/prometheus:v3.7.3
+    command:
+      - --storage.tsdb.retention.time=7d
+      - --config.file=/etc/config/prometheus.yml
+      - --web.console.libraries=/etc/prometheus/console_libraries
+      - --web.console.templates=/etc/prometheus/consoles
+      - --web.enable-otlp-receiver
+      - --web.enable-remote-write-receiver
     ports:
-      - "16686:16686" # Jaeger UI
+      - "9090:9090"
+    volumes:
+      - ./configs/prometheus.yml:/etc/config/prometheus.yml
+      - prometheus-data:/prometheus
+
+  grafana:
+    depends_on:
+      - prometheus
+      - tempo
+    image: grafana/grafana:12.4.0-19358656895
+    environment:
+      GF_AUTH_DISABLE_LOGIN_FORM: "true"
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: "Admin"
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./configs/grafana/provisioning:/etc/grafana/provisioning
+      - grafana-data:/var/lib/grafana
+
+  tempo:
+    image: grafana/tempo:2.9.0
+    command: ["-config.file=/etc/tempo.yaml" ]
+    user: root
+    ports:
+      - "3200"
       - "4317"
-      - "4318"
-      - "5778"
-      - "9411"
+      - "9097"
+    volumes:
+      - ./configs/tempo.yaml:/etc/tempo.yaml
+      - tempo-data:/var/lib/tempo
+
+volumes:
+  grafana-data: {}
+  prometheus-data: {}
+  tempo-data: {}

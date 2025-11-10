@@ -27,6 +27,7 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
+        <div className="bg-[url(/osmc-header.png)] bg-center w-full h-[500px] mb-16"/>
         {children}
       </body>
     </html>
