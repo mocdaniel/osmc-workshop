@@ -46,6 +46,10 @@ services:
     environment:
       NEXT_TALK_API_HOST: http://talk-api:8080
       NEXT_SPEAKER_API_HOST: http://speaker-api:5000
+      OTEL_TRACES_EXPORTER: console
+      OTEL_METRICS_EXPORTER: console
+      OTEL_SERVICE_NAME: frontend
+      NODE_OPTIONS: "--require @opentelemetry/auto-instrumentations-node/register"
     ports:
       - "3000:3000"
 
