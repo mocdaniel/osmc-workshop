@@ -83,6 +83,16 @@ services:
     volumes:
       - ./configs/beyla.yml:/etc/beyla.yml
 
+  k6:
+    image: grafana/k6:1.4.0
+    depends_on:
+      - frontend
+      - speaker-api
+      - talk-api
+    volumes:
+      - ./configs/k6.js:/k6.js
+    command: ["run", "/k6.js"]
+
 ########################################################
 # Ignore everything below, you won't have to touch it. #
 ########################################################

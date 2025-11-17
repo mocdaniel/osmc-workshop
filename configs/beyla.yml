@@ -4,7 +4,6 @@ discovery:
       exe_path: /usr/local/bin/node
     - open_ports: 5000
     - open_ports: 8080
-trace_printer: json_indent
 otel_metrics_export:
   endpoint: http://otel-collector:4318
 otel_traces_export:
