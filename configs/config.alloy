@@ -1,0 +1,79 @@
+otelcol.receiver.otlp "default" {
+	grpc { }
+
+	http { }
+
+	output {
+		metrics = [otelcol.processor.batch.default.input]
+		traces  = [otelcol.processor.batch.default.input]
+	}
+}
+
+otelcol.processor.batch "default" {
+	output {
+		metrics = [otelcol.exporter.otlphttp.default_prometheus.input, otelcol.exporter.debug.default.input]
+		traces  = [otelcol.exporter.otlp.default_tempo.input, otelcol.exporter.debug.default.input]
+	}
+}
+
+otelcol.exporter.otlphttp "default_prometheus" {
+	client {
+		endpoint = "http://prometheus:9090/api/v1/otlp"
+
+		tls {
+			insecure = true
+		}
+		http2_ping_timeout = "0s"
+	}
+}
+
+otelcol.exporter.debug "default" {
+	verbosity = "Basic"
+}
+
+otelcol.exporter.otlp "default_tempo" {
+	client {
+		endpoint = "tempo:4317"
+
+		tls {
+			insecure = true
+		}
+	}
+}
+
+beyla.ebpf "default" {
+  discovery {
+    instrument {
+      open_ports = "8080"
+    }
+
+    instrument {
+      open_ports = "5000"
+    }
+
+    instrument {
+      open_ports = "3000"
+      exe_path = "/usr/local/bin/node"
+    }
+  }
+
+  output {
+    traces = [otelcol.processor.batch.default.input]
+  }
+}
+
+prometheus.scrape "beyla" {
+	targets = beyla.ebpf.default.targets
+	honor_labels = true
+	forward_to = [prometheus.remote_write.demo.receiver]
+}
+
+prometheus.remote_write "demo" {
+	endpoint {
+		url = "http://prometheus:9090/api/v1/write"
+	}
+}
+
+livedebugging {
+	enabled = true
+}

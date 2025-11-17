@@ -93,6 +93,24 @@ services:
       - ./configs/k6.js:/k6.js
     command: ["run", "/k6.js"]
 
+  alloy:
+    image: grafana/alloy:v1.11.3
+    depends_on:
+      - speaker-api
+      - talk-api
+      - frontend
+    privileged: true
+    pid: host
+    command:
+      - run
+      - --server.http.listen-addr=0.0.0.0:12345
+      - --stability.level=experimental
+      - /etc/alloy/config.alloy
+    ports:
+      - "12345:12345"
+    volumes:
+      - ./configs/config.alloy:/etc/alloy/config.alloy
+
 ########################################################
 # Ignore everything below, you won't have to touch it. #
 ########################################################
